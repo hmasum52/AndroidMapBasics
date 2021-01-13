@@ -7,7 +7,7 @@ public class AnimationUtils {
     public static ValueAnimator polyLineAnimator(){
         ValueAnimator valueAnimator = ValueAnimator.ofInt(0,100);
         valueAnimator.setInterpolator(new LinearInterpolator());
-        valueAnimator.setDuration(30000);
+        valueAnimator.setDuration(5000);
         return valueAnimator;
     }
 

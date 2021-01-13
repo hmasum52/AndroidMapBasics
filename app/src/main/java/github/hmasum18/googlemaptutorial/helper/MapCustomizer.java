@@ -25,6 +25,8 @@ import com.google.android.gms.maps.model.PolylineOptions;
 import java.util.ArrayList;
 import java.util.List;
 
+import github.hmasum18.googlemaptutorial.util.MapUtils;
+
 public class MapCustomizer {
     private static final String TAG = "MapCustomizer";
     private final GoogleMap map;
@@ -127,6 +129,61 @@ public class MapCustomizer {
 
     public Marker addImageMarker(MarkerOptions markerOptions){
          return map.addMarker(markerOptions);
+    }
+
+    public void showPath(ArrayList<LatLng> latLngList) {
+        //part 1
+        //camera will be bound to these lat lng
+        LatLngBounds.Builder latLngBuilder = new LatLngBounds.Builder();
+        for (LatLng latLng : latLngList) {
+            latLngBuilder.include(latLng);
+        }
+        LatLngBounds latLngBounds = latLngBuilder.build();
+        this.animateCameraWithBounds(latLngBounds);
+
+        //now draw the polyLines
+        PolylineOptions polylineOptions = new PolylineOptions();
+        // polylineOptions.color(Color.GRAY);
+        polylineOptions.color(Color.RED);
+        polylineOptions.width(5f);
+        polylineOptions.addAll(latLngList);
+        final Polyline grayPloyLine = map.addPolyline(polylineOptions);
+
+        PolylineOptions blackPolylineOptions = new PolylineOptions();
+        blackPolylineOptions.color(Color.BLACK);
+        blackPolylineOptions.width(5f);
+        blackPolylineOptions.addAll(latLngList);
+        final Polyline blackPolyLine = map.addPolyline(blackPolylineOptions);
+
+        //part 2
+        //add markers in  origin  and destination
+        Marker originMarker = addOriginDestinationMarkerAndGet(latLngList.get(0));
+        originMarker.setAnchor(0.5f, 0.5f);
+
+        Marker destinationMarker = addOriginDestinationMarkerAndGet(latLngList.get(latLngList.size() - 1));
+        destinationMarker.setAnchor(0.5f, 0.5f);
+
+        //part 3
+        //animate point
+        ValueAnimator polyLineAnimator = ValueAnimator.ofInt(0,100);
+        polyLineAnimator.setInterpolator(new LinearInterpolator());
+        polyLineAnimator.setDuration(5000);
+        polyLineAnimator.addUpdateListener(new ValueAnimator.AnimatorUpdateListener() {
+            @Override
+            public void onAnimationUpdate(ValueAnimator animation) {
+                int percentValue = (int) animation.getAnimatedValue();
+                int index = grayPloyLine.getPoints().size() * (int) (percentValue / 100.0f);
+                Log.d(TAG, " grayPolyLine Size " + grayPloyLine.getPoints().size());
+                Log.d(TAG, " point index " + index);
+                blackPolyLine.setPoints(grayPloyLine.getPoints().subList(0, index));
+            }
+        });
+        polyLineAnimator.start();
+    }
+
+    private Marker addOriginDestinationMarkerAndGet(LatLng latLng) {
+        BitmapDescriptor bitmapDescriptor = BitmapDescriptorFactory.fromBitmap(MapUtils.getOriginDestinationMarkerBitmap());
+        return map.addMarker(new MarkerOptions().position(latLng).flat(true).icon(bitmapDescriptor));
     }
 
     static class MapLine {

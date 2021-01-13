@@ -70,7 +70,8 @@ public class DeviceLocationFinder {
                             Toast.makeText(activity.getApplicationContext(), "location found\"", Toast.LENGTH_SHORT).show();
                             LatLng currentLocation = new LatLng(location.getLatitude(), location.getLongitude());
                             deviceLatLng = currentLocation;
-                            onDeviceLatLngFoundListener.onDeviceLatLngFound(currentLocation);
+                            if(onDeviceLatLngFoundListener!=null)
+                                onDeviceLatLngFoundListener.onDeviceLatLngFound(currentLocation);
                         } else {
                             Log.d(TAG, "getDeviceLocation onComplete: location not found");
                         }
