@@ -1,12 +1,14 @@
 package github.hmasum18.googlemaptutorial;
 
-import android.animation.ValueAnimator;
-import android.content.pm.PackageManager;
 import android.location.Address;
 import android.location.Geocoder;
 import android.os.Bundle;
-import android.os.Handler;
 import android.util.Log;
+import android.view.KeyEvent;
+import android.view.inputmethod.EditorInfo;
+import android.widget.EditText;
+import android.widget.TextView;
+import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
@@ -14,28 +16,29 @@ import androidx.appcompat.app.AppCompatActivity;
 import com.google.android.gms.maps.GoogleMap;
 import com.google.android.gms.maps.OnMapReadyCallback;
 import com.google.android.gms.maps.SupportMapFragment;
-import com.google.android.gms.maps.model.BitmapDescriptor;
-import com.google.android.gms.maps.model.BitmapDescriptorFactory;
 import com.google.android.gms.maps.model.LatLng;
 import com.google.android.gms.maps.model.LatLngBounds;
-import com.google.android.gms.maps.model.Marker;
 import com.google.android.gms.maps.model.MarkerOptions;
-
 import java.util.ArrayList;
 import java.util.List;
 
+import github.hmasum18.googlemaptutorial.api.GoogleMapsApi;
+import github.hmasum18.googlemaptutorial.databinding.ActivityMapsBinding;
 import github.hmasum18.googlemaptutorial.helper.DeviceLocationFinder;
 import github.hmasum18.googlemaptutorial.helper.MapCustomizer;
-import github.hmasum18.googlemaptutorial.satellite.SatelliteViewer;
-import github.hmasum18.googlemaptutorial.util.AnimationUtils;
-import github.hmasum18.googlemaptutorial.util.MapUtils;
+import okhttp3.ResponseBody;
+import retrofit2.Call;
+import retrofit2.Callback;
+import retrofit2.Response;
 
 public class MapsActivity extends AppCompatActivity implements OnMapReadyCallback {
 
     public static final String TAG = "MapsActivity->";
-    //  private EditText searchLocationEDT;
+
+    private ActivityMapsBinding mVB;
 
     private GoogleMap mMap;
+    private LatLng deviceLatLng;
     private DeviceLocationFinder deviceLocationFinder;
     private MapCustomizer mapCustomizer;
 
@@ -49,39 +52,29 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        setContentView(R.layout.activity_maps);
+        mVB = ActivityMapsBinding.inflate(getLayoutInflater());
+        setContentView(mVB.getRoot());
 
         //getLocationPermission();
-        deviceLocationFinder = new DeviceLocationFinder(this);
-        initStartMap();
+        deviceLocationFinder = new DeviceLocationFinder(this, this);
+        initMap();
 
-        //searchLocationEDT = findViewById(R.id.location_input);
-        /*searchLocationEDT.setOnEditorActionListener(new TextView.OnEditorActionListener() {
+        mVB.locationInput.setOnEditorActionListener(new TextView.OnEditorActionListener() {
             @Override
             public boolean onEditorAction(TextView v, int actionId, KeyEvent event) {
                 if(actionId == EditorInfo.IME_ACTION_DONE
                 || actionId == EditorInfo.IME_ACTION_SEARCH
                 || event.getAction() == KeyEvent.ACTION_DOWN
                 || event.getAction() == KeyEvent.KEYCODE_ENTER){
-                    findAndLocate();
+                    findAndLocateByLocationName();
                 }
                 return false;
             }
-        });*/
+        });
+
     }
 
-    @Override
-    public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
-        deviceLocationFinder.setPermissionGranted(false);
-        switch (requestCode) {
-            case DeviceLocationFinder.PERMISSIONS_REQUEST_ACCESS_FINE_LOCATION:
-                if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-                    deviceLocationFinder.setPermissionGranted(true);
-                }
-        }
-    }
-
-    public void initStartMap() {
+    public void initMap() {
         // Obtain the SupportMapFragment and get notified when the map is ready to be used.
         SupportMapFragment mapFragment = (SupportMapFragment) getSupportFragmentManager().findFragmentById(R.id.map);
         // load map in the fragment in an async task as it may pass UI thread
@@ -99,51 +92,75 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
      */
     @Override
     public void onMapReady(GoogleMap googleMap) {
-        updateLocationUI();
-
         mMap = googleMap;
+        deviceLocationFinder.requestDeviceLocation(new DeviceLocationFinder.OnDeviceLocationFoundListener() {
+            @Override
+            public void onDeviceLocationFound(LatLng latLng) {
+                Log.d(TAG, "onDeviceLocationFound: latlng: "+latLng);
+                updateLocationUI();
+            }
+        });
+
         mapCustomizer = new MapCustomizer(googleMap);
 
         //customize map style
         //mMap.setMapStyle(MapStyleOptions.loadRawResourceStyle(this, rawMapStyles[3]));
         mMap.setMapType(GoogleMap.MAP_TYPE_HYBRID);
 
-        deviceLocationFinder.requestDeviceLocation();
-       /* deviceLocationFinder.setOnDeviceLatLngFoundListener(new DeviceLocationFinder.OnDeviceLatLngFoundListener() {
+        initListeners();
+    }
+
+    private void initListeners() {
+        mVB.hospital.setOnClickListener(v -> {
+            Toast.makeText(this, "Showing nearby hospitals...", Toast.LENGTH_SHORT).show();
+            showNearByHospitals();
+        });
+
+        mVB.schools.setOnClickListener(v -> {
+            Toast.makeText(this, "Showing nearby schools...", Toast.LENGTH_SHORT).show();
+            showNearBySchools();
+        });
+    }
+
+
+    private void showNearByHospitals(){
+        deviceLocationFinder.requestDeviceLocation(latLng -> {
+            makePlacesCall("hospital", latLng);
+        });
+    }
+
+    private void showNearBySchools(){
+        deviceLocationFinder.requestDeviceLocation(latLng -> {
+            makePlacesCall("school", latLng);
+        });
+    }
+
+    private void showNearByPoliceStations(){
+        deviceLocationFinder.requestDeviceLocation(latLng -> {
+            makePlacesCall("police station", latLng);
+        });
+    }
+
+    private void makePlacesCall(String type, LatLng latLng){
+        String location = latLng.latitude+","+latLng.longitude;
+        Call<ResponseBody> call =  GoogleMapsApi.instance.placesService
+                .fetchNearByPlaces(location,1500, type, BuildConfig.GOOGLE_MAP_WEB_API_KEY);
+
+        call.enqueue(new Callback<ResponseBody>() {
             @Override
-            public void onDeviceLatLngFound(LatLng latLng) {
-
-                latLngBuilder.include(latLng);
-
-                //move camera tha to device location
-                mapCustomizer.moveCamera(latLng, 15);
-
-                //add a marker to device location
-                MarkerOptions markerOptions = new MarkerOptions().position(latLng).title("myLocation");
-                mMap.addMarker(markerOptions);
-
-                //add a circle to device location
-                mapCustomizer.addCircle(latLng,1000);
+            public void onResponse(@NonNull Call<ResponseBody> call, @NonNull Response<ResponseBody> response) {
+                if(response.isSuccessful()&&response.body()!=null){
+                    Log.d(TAG, "onResponse: "+response.body());
+                }else{
+                    Log.e(TAG, "onResponse: "+type+" fetching is not successful");
+                }
             }
-        });*/
 
-
-        //after delaying 3 sec implements run
-        final ArrayList<LatLng> locationList = new ArrayList<>();
-        //locationList.add(deviceLatLng);
-     /*   locationList.add(new LatLng(22.487241899999997,92.08613299999999)); // Rangunia
-        locationList.add(new LatLng(23.7265081,90.39263989999999)); // BUET*/
-        locationList.add(new LatLng(22.574578, -10.189307)); //Yeman
-        locationList.add(new LatLng(17.614275, 121.984322)); //Luzon, Philippines
-        new Handler().postDelayed(new Runnable() {
             @Override
-            public void run() {
-                //mapCustomizer.showPath(locationList);
-                //show a satellite
-                SatelliteViewer satelliteViewer = new SatelliteViewer(MapsActivity.this,mapCustomizer);
-                satelliteViewer.showMovingSatellite(locationList);
+            public void onFailure(@NonNull Call<ResponseBody> call,@NonNull Throwable t) {
+                Log.e(TAG, "onFailure: error fetching "+type, t);
             }
-        },2000);
+        });
     }
 
 
@@ -152,7 +169,7 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
      */
     public void findAndLocateByLocationName() {
         Log.d(TAG, "findAndLocate");
-        String locationString = "";//searchLocationEDT.getText().toString();
+        String locationString = mVB.locationInput.getText().toString();
 
         Geocoder geocoder = new Geocoder(MapsActivity.this);
         List<Address> list = new ArrayList<>();
@@ -193,11 +210,11 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
         try {
             if (deviceLocationFinder.isPermissionGranted()) {
                 mMap.setMyLocationEnabled(true);
-                // mMap.getUiSettings().setMyLocationButtonEnabled(true);
+                mMap.getUiSettings().setMyLocationButtonEnabled(true);
                 // mMap.getUiSettings().setCompassEnabled(true);
             } else {
                 mMap.setMyLocationEnabled(false);
-                // mMap.getUiSettings().setMyLocationButtonEnabled(false);
+                mMap.getUiSettings().setMyLocationButtonEnabled(false);
                 deviceLocationFinder.getLocationPermission();
             }
         } catch (SecurityException e) {

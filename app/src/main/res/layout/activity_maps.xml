@@ -30,19 +30,27 @@
         map:layout_constraintStart_toStartOf="parent"
         map:layout_constraintTop_toTopOf="parent" />
 
-    <!--<com.google.android.material.floatingactionbutton.FloatingActionButton
-        android:id="@+id/floatingActionButton"
+    <com.google.android.material.floatingactionbutton.FloatingActionButton
+        android:id="@+id/hospital"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
+        android:layout_marginEnd="32dp"
+        android:layout_marginBottom="32dp"
         android:clickable="true"
-        android:backgroundTint="#00b6ff"
         map:layout_constraintBottom_toBottomOf="parent"
         map:layout_constraintEnd_toEndOf="parent"
-        map:layout_constraintHorizontal_bias="0.919"
-        map:layout_constraintStart_toStartOf="parent"
-        map:layout_constraintTop_toTopOf="parent"
-        map:layout_constraintVertical_bias="0.952"
-        map:srcCompat="@android:drawable/ic_menu_mylocation" />-->
+        map:srcCompat="@drawable/ic_baseline_local_hospital_24" />
+
+    <com.google.android.material.floatingactionbutton.FloatingActionButton
+        android:id="@+id/schools"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginEnd="8dp"
+        android:clickable="true"
+        map:layout_constraintBottom_toBottomOf="@+id/hospital"
+        map:layout_constraintEnd_toStartOf="@+id/hospital"
+        map:layout_constraintTop_toTopOf="@+id/hospital"
+        map:srcCompat="@drawable/ic_baseline_school_24" />
 
 
 </androidx.constraintlayout.widget.ConstraintLayout>
