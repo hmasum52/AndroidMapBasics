@@ -49,6 +49,17 @@ public class MapCustomizer {
         map.animateCamera(CameraUpdateFactory.newCameraPosition(cameraPosition));
     }
 
+    public void animateCameraWithBounds(List<LatLng> latLngList){
+        if(latLngList == null || latLngList.size() == 0)
+            return;
+        LatLngBounds.Builder builder = new LatLngBounds.Builder();
+        for (LatLng latLng :
+                latLngList) {
+            builder.include(latLng);
+        }
+        map.animateCamera(CameraUpdateFactory.newLatLngBounds(builder.build(), 200));
+    }
+
     public void animateCameraWithBounds(LatLngBounds bounds) {
         map.animateCamera(CameraUpdateFactory.newLatLngBounds(bounds, 200));
     }
@@ -117,6 +128,14 @@ public class MapCustomizer {
 
     public Circle addCircle(CircleOptions circleOptions) {
         return map.addCircle(circleOptions);
+    }
+
+    public Marker addMarker(LatLng latLng,String title){
+        MarkerOptions markerOptions = new MarkerOptions();
+        markerOptions.position(latLng);
+        markerOptions.title(title);
+
+        return map.addMarker(markerOptions);
     }
 
     public Marker addImageMarker(LatLng latLng, Bitmap bitmap){

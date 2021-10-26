@@ -23,9 +23,11 @@ import java.util.ArrayList;
 import java.util.List;
 
 import github.hmasum18.googlemaptutorial.api.GoogleMapsApi;
+import github.hmasum18.googlemaptutorial.api.NearbyPlacesApiResponse;
 import github.hmasum18.googlemaptutorial.databinding.ActivityMapsBinding;
 import github.hmasum18.googlemaptutorial.helper.DeviceLocationFinder;
 import github.hmasum18.googlemaptutorial.helper.MapCustomizer;
+import github.hmasum18.googlemaptutorial.model.places.NearByPlace;
 import okhttp3.ResponseBody;
 import retrofit2.Call;
 import retrofit2.Callback;
@@ -120,16 +122,23 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
             Toast.makeText(this, "Showing nearby schools...", Toast.LENGTH_SHORT).show();
             showNearBySchools();
         });
+
+        mVB.policeStation.setOnClickListener(v -> {
+            Toast.makeText(this, "Showing nearby police stations...", Toast.LENGTH_SHORT).show();
+            showNearByPoliceStations();
+        });
     }
 
 
     private void showNearByHospitals(){
+        mMap.clear();
         deviceLocationFinder.requestDeviceLocation(latLng -> {
             makePlacesCall("hospital", latLng);
         });
     }
 
     private void showNearBySchools(){
+        mMap.clear();
         deviceLocationFinder.requestDeviceLocation(latLng -> {
             makePlacesCall("school", latLng);
         });
@@ -137,30 +146,44 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
 
     private void showNearByPoliceStations(){
         deviceLocationFinder.requestDeviceLocation(latLng -> {
-            makePlacesCall("police station", latLng);
+            // https://developers.google.com/maps/documentation/places/web-service/supported_types
+            makePlacesCall("police", latLng);
         });
     }
 
     private void makePlacesCall(String type, LatLng latLng){
         String location = latLng.latitude+","+latLng.longitude;
-        Call<ResponseBody> call =  GoogleMapsApi.instance.placesService
-                .fetchNearByPlaces(location,1500, type, BuildConfig.GOOGLE_MAP_WEB_API_KEY);
+        Call<NearbyPlacesApiResponse> call =  GoogleMapsApi.instance.placesService
+                .fetchNearByPlaces(location,15000, type, BuildConfig.GOOGLE_MAP_WEB_API_KEY);
 
-        call.enqueue(new Callback<ResponseBody>() {
+        call.enqueue(new Callback<NearbyPlacesApiResponse>() {
             @Override
-            public void onResponse(@NonNull Call<ResponseBody> call, @NonNull Response<ResponseBody> response) {
+            public void onResponse(@NonNull Call<NearbyPlacesApiResponse> call, @NonNull Response<NearbyPlacesApiResponse> response) {
                 if(response.isSuccessful()&&response.body()!=null){
                     Log.d(TAG, "onResponse: "+response.body());
+                    showNearByPlaces(response.body().getResults());
                 }else{
                     Log.e(TAG, "onResponse: "+type+" fetching is not successful");
                 }
             }
 
             @Override
-            public void onFailure(@NonNull Call<ResponseBody> call,@NonNull Throwable t) {
+            public void onFailure(@NonNull Call<NearbyPlacesApiResponse> call,@NonNull Throwable t) {
                 Log.e(TAG, "onFailure: error fetching "+type, t);
             }
         });
+    }
+
+    public void showNearByPlaces(List<NearByPlace> nearByPlaceList){
+        if(nearByPlaceList.size() ==0)
+            Toast.makeText(this, "No nearby locations", Toast.LENGTH_SHORT).show();
+        List<LatLng> latLngList = new ArrayList<>();
+        for (NearByPlace nearbyPlace : nearByPlaceList) {
+            LatLng latLng = nearbyPlace.getGeometry().getLocation().getLatLng();
+            latLngList.add(latLng);
+            mapCustomizer.addMarker(latLng, nearbyPlace.getName());
+        }
+        mapCustomizer.animateCameraWithBounds(latLngList);
     }
 
 
